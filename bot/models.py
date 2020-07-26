@@ -1,4 +1,5 @@
 import enum
+from datetime import datetime
 
 from sqlalchemy import (
     Column,
@@ -6,8 +7,11 @@ from sqlalchemy import (
     String,
     Enum,
     ForeignKey,
-    Boolean)
+    Boolean,
+    DateTime
+)
 from sqlalchemy.ext.declarative import as_declarative, declared_attr
+from sqlalchemy.orm import relationship
 
 
 class EnumSign(enum.Enum):
@@ -25,27 +29,33 @@ class EnumStatus(enum.Enum):
 class Base:
     @declared_attr
     def __tablename__(cls):
-        return cls.__name__.capitalize()
+        return cls.__name__
 
     id = Column(Integer, primary_key=True)
+    created = Column(DateTime, default=datetime.now, server_default='NOW()')
 
 
 class User(Base):
-    name = Column(String)
+    tg_id = Column(Integer, nullable=False)
+    name = Column(String, nullable=False)
 
 
 class TicTacToeGame(Base):
-    status = Column(Enum(EnumStatus))
-    current_step = Column(Integer, ForeignKey('Tictactoeplayer.id'))
+    status = Column(Enum(EnumStatus), nullable=False, default=EnumStatus.initial)
+    current_step_user_id = Column(Integer, ForeignKey('User.id'), nullable=False)
+    current_step_user = relationship('User')
 
 
 class TicTacToePlayer(Base):
-    user_id = Column(Integer, ForeignKey('User.id'))
-    game_id = Column(Integer, ForeignKey('Tictactoegame.id'))
+    user_id = Column(Integer, ForeignKey('User.id'), nullable=False)
+    user = relationship('User')
+    game_id = Column(Integer, ForeignKey('TicTacToeGame.id'), nullable=False)
+    game = relationship('TicTacToeGame')
     sign = Column(Enum(EnumSign))
     is_winner = Column(Boolean)
 
 
 class TicTacToeStep(Base):
-    position = Column(Integer)
-    player_id = Column(Integer, ForeignKey('Tictactoeplayer.id'))
+    position = Column(Integer, nullable=False)
+    player_id = Column(Integer, ForeignKey('TicTacToePlayer.id'), nullable=False)
+    player = relationship('TicTacToePlayer')
