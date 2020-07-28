@@ -11,7 +11,6 @@ from sqlalchemy import (
     DateTime
 )
 from sqlalchemy.ext.declarative import as_declarative, declared_attr
-from sqlalchemy.orm import relationship
 
 
 class EnumSign(enum.Enum):
@@ -42,15 +41,12 @@ class User(Base):
 
 class TicTacToeGame(Base):
     status = Column(Enum(EnumStatus), nullable=False, default=EnumStatus.initial)
-    current_step_user_id = Column(Integer, ForeignKey('User.id'), nullable=False)
-    current_step_user = relationship('User')
+    current_step_user_id = Column(Integer, ForeignKey('User.id'))
 
 
 class TicTacToePlayer(Base):
     user_id = Column(Integer, ForeignKey('User.id'), nullable=False)
-    user = relationship('User')
     game_id = Column(Integer, ForeignKey('TicTacToeGame.id'), nullable=False)
-    game = relationship('TicTacToeGame')
     sign = Column(Enum(EnumSign))
     is_winner = Column(Boolean)
 
@@ -58,4 +54,3 @@ class TicTacToePlayer(Base):
 class TicTacToeStep(Base):
     position = Column(Integer, nullable=False)
     player_id = Column(Integer, ForeignKey('TicTacToePlayer.id'), nullable=False)
-    player = relationship('TicTacToePlayer')
