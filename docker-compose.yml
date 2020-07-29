@@ -17,3 +17,14 @@ services:
     env_file:
       - envs/bot.env
       - envs/database.env
+  web:
+    build: 
+      context: administration/
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./administration/:/code/
+    ports:
+      - "8000:8000"
+    depends_on:
+      - database
+
