@@ -17,3 +17,14 @@ services:
     env_file:
       - envs/bot.env
       - envs/database.env
+  testing:
+    build:
+      context: .
+      dockerfile: testing/Dockerfile
+    volumes:
+      - .:/code/
+    depends_on:
+      - database
+    env_file:
+      - envs/bot.env
+      - envs/database.env
