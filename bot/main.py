@@ -1,18 +1,24 @@
+import logging
 from asyncio import get_event_loop
 
-from aiogram import Bot, Dispatcher, executor, types
+from aiogram import executor
+from aiogram.types import InlineQuery
 from asyncpgsa import pg
 
-from configs.bot import BotConfig
-from configs.database import DataBaseConfig
+import games.tic_tac_toe
+from configs import DataBaseConfig
+from constants import CACHE_TIME
+from inline_arcticles.articles import create_tic_tac_toe_inline_article
+from misc import dp
 
-bot = Bot(token=BotConfig().api_token.get_secret_value())
-dp = Dispatcher(bot)
+
+logging.basicConfig(level=logging.INFO)
 
 
-@dp.message_handler()
-async def echo(message: types.Message):
-    await message.answer(message.text)
+@dp.inline_handler()
+async def main_inline(query: InlineQuery):
+    item = await create_tic_tac_toe_inline_article(game_starter_id=query.from_user.id)
+    await query.answer(results=[item], cache_time=CACHE_TIME, is_personal=True)
 
 
 async def init_connection():
