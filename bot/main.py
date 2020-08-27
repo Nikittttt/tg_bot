@@ -1,9 +1,12 @@
 import logging
+import requests
+import re
 from asyncio import get_event_loop
 
 from aiogram import executor
 from aiogram.types import InlineQuery, Message, ContentTypes
 from asyncpgsa import pg
+from bs4 import BeautifulSoup
 
 import games.tic_tac_toe
 from DAO import UserDAO
@@ -37,13 +40,15 @@ async def new_chat_member(message: Message):
 
     chat_name = message.chat.full_name
 
-    if len(users.values()) > 0:
+    if users:
+        list_users = list(users.values())
         if len(users.values()) == 1:
-            str_users = str(list(users.values())[0])
+            str_users = str(list_users[0])
         else:
-            str_users = ", ".join(users.values()[:len(users.values()) - 1]) + " и " + list(users.values())[-1]
-        await message.reply(("Давайте все вместе поприветствуем {users} "
-                             "в нашем уютном чате <{chat_name}>").format(users=str_users, chat=chat_name))
+            almost_all_lines = ", ".join(list_users[:len(users.values()) - 1])
+            str_users = f"{almost_all_lines} и {list_users[-1]}"
+        await message.reply(f"Давайте все вместе поприветствуем {str_users} "
+                            f"в нашем уютном чате <{chat_name}>")
 
 
 @dp.message_handler(content_types=types.ContentTypes.LEFT_CHAT_MEMBER)
@@ -60,10 +65,11 @@ async def left_chat_member(message: types.Message):
     if not user:
         user = user_db.create(tg_id=left_user.id, name=left_user.full_name)
 
+    user_link = left_user.get_mention(name=user.name)
     if message.left_chat_member.id == message.from_user.id:
-        await message.answer("Press F to pay respect {user}".format(user=left_user.get_mention(name=user.name)))
+        await message.answer(f"Press F to pay respect {user_link}")
     else:
-        await message.answer("Видимо {user} это заслужил...".format(user=left_user.get_mention(name=user.name)))
+        await message.answer(f"Видимо {user_link} это заслужил...")
 
 
 @dp.message_handler(lambda message: message.get_args(), commands=['change_name'], content_types=types.ContentTypes.TEXT)
@@ -77,10 +83,46 @@ async def change_name(message: types.Message):
         old_username = user_db.create(tg_id=from_user.id, name=from_user.full_name)
 
     new_username = user_db.update_by_tg_id(tg_id=from_user.id, name=text)
-    await message.answer("Теперь ты не {old_username}, а {new_username}".format(
-        old_username=from_user.get_mention(name=old_username.name),
-        new_username=from_user.get_mention(name=new_username.name)
-    ))
+    old_user_link = from_user.get_mention(name=old_username.name)
+    new_user_link = from_user.get_mention(name=new_username.name)
+    await message.answer(f"Теперь ты не {old_user_link}, а {new_user_link}")
+
+
+@dp.message_handler(lambda message: message.get_args(), commands=['google'], content_types=types.ContentTypes.TEXT)
+async def googling(message: types.Message):
+    from_user = message.from_user
+    text = message.get_args()
+
+    user_db = UserDAO()
+    username = user_db.get(tg_id=from_user.id)
+    if not username:
+        username = user_db.create(tg_id=from_user.id, name=from_user.full_name)
+
+    url = f'https://www.google.com/search?lang=ru&q={text}'
+    r = requests.get(url)
+    soup = BeautifulSoup(r.text)
+    tables = soup.find_all("a", href=re.compile('url\?q='))
+
+    count_website = 0
+    list_googling = []
+    for website in tables:
+        try:
+            text_website = website.h3.div.get_text()
+            link_website = website['href'][0:website['href'].rfind('&sa')].replace("/url?q=", "", 1)
+            list_googling.append(f'{text_website} - {link_website}')
+            count_website += 1
+            if count_website == 5:
+                break
+        except AttributeError:
+            continue
+    if count_website == 0:
+        text_googling = 'Мне не удалось найти ничего'
+    else:
+        str_from_list_googling = "\n".join(list_googling)
+        text_googling = f'Мне удалось найти следующее:\n{str_from_list_googling}'
+
+    user_link = from_user.get_mention(name=username.name)
+    await message.answer(f"Уважаемый {user_link}, по вашему запросу <{text}>\n{text_googling}")
 
 
 async def init_connection():
